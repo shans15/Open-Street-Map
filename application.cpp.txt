@@ -1,0 +1,174 @@
+// application.cpp
+// Sarthak Hans
+//
+//
+// References:
+// TinyXML: https://github.com/leethomason/tinyxml2
+// OpenStreetMap: https://www.openstreetmap.org
+// OpenStreetMap docs:
+//   https://wiki.openstreetmap.org/wiki/Main_Page
+//   https://wiki.openstreetmap.org/wiki/Map_Features
+//   https://wiki.openstreetmap.org/wiki/Node
+//   https://wiki.openstreetmap.org/wiki/Way
+//   https://wiki.openstreetmap.org/wiki/Relation
+//
+
+#include <iostream>
+#include <iomanip> /*setprecision*/
+#include <string>
+#include <vector>
+#include <map>
+#include <cstdlib>
+#include <cstring>
+#include <cassert>
+
+#include "tinyxml2.h"
+#include "dist.h"
+#include "osm.h"
+
+using namespace std;
+using namespace tinyxml2;
+
+const double INF = numeric_limits<double>::max();
+
+class prioitize
+{
+public:
+  bool operator()(pair<long long, double> p,
+                  pair<long long, double> p1) const
+  {
+    return p.second > p1.second;
+  }
+};
+
+BuildingInfo searchBuilding(string query, vector<BuildingInfo> &Buildings)
+{
+  BuildingInfo foundBuilding;
+  for (const BuildingInfo &building : Buildings)
+  {
+    if (building.Abbrev.find(query) != string::npos ||
+        building.Fullname.find(query) != string::npos)
+    {
+      foundBuilding = building;
+    }
+  }
+  return foundBuilding;
+}
+
+BuildingInfo centerBuilding(const BuildingInfo &building1,
+                            const BuildingInfo &building2,
+                            vector<BuildingInfo> &Buildings)
+{
+  Coordinates c = centerBetween2Points(building1.Coords.Lat,
+                                       building1.Coords.Lon,
+                                       building2.Coords.Lat,
+                                       building2.Coords.Lon);
+  double min = numeric_limits<double>::max();
+  BuildingInfo closestBuilding;
+  for (const BuildingInfo &b : Buildings)
+  {
+    double distance = distBetween2Points(c.Lat, c.Lon, b.Coords.Lat, b.Coords.Lon);
+    if (distance < min)
+    {
+      min = distance;
+      closestBuilding = b;
+    }
+  }
+  return closestBuilding;
+}
+
+
+
+int main()
+{
+  // maps a Node ID to it's coordinates (lat, lon)
+  map<long long, Coordinates> Nodes;
+  // info about each footway, in no particular order
+  vector<FootwayInfo> Footways;
+  // info about each building, in no particular order
+  vector<BuildingInfo> Buildings;
+  XMLDocument xmldoc;
+
+  cout << "** Navigating UIC open street map **" << endl;
+  cout << endl;
+  cout << std::setprecision(8);
+
+  string def_filename = "map.osm";
+  string filename;
+
+  cout << "Enter map filename> ";
+  getline(cin, filename);
+
+  if (filename == "")
+  {
+    filename = def_filename;
+  }
+
+  //
+  // Load XML-based map file
+  //
+  if (!LoadOpenStreetMap(filename, xmldoc))
+  {
+    cout << "**Error: unable to load open street map." << endl;
+    cout << endl;
+    return 0;
+  }
+
+  //
+  // Read the nodes, which are the various known positions on the map:
+  //
+  int nodeCount = ReadMapNodes(xmldoc, Nodes);
+
+  //
+  // Read the footways, which are the walking paths:
+  //
+  int footwayCount = ReadFootways(xmldoc, Footways);
+
+  //
+  // Read the university buildings:
+  //
+  int buildingCount = ReadUniversityBuildings(xmldoc, Nodes, Buildings);
+
+  //
+  // Stats
+  //
+  assert(nodeCount == (int)Nodes.size());
+  assert(footwayCount == (int)Footways.size());
+  assert(buildingCount == (int)Buildings.size());
+
+  cout << endl;
+  cout << "# of nodes: " << Nodes.size() << endl;
+  cout << "# of footways: " << Footways.size() << endl;
+  cout << "# of buildings: " << Buildings.size() << endl;
+
+  //
+  // TO DO: build the graph, output stats:
+  //
+
+  // cout << "# of vertices: " << G.NumVertices() << endl;
+  // cout << "# of edges: " << G.NumEdges() << endl;
+  cout << endl;
+
+  //
+  // Menu
+  //
+  string userInput;
+  cout << "Enter \"a\" for the standard application or "
+       << "\"c\" for the creative component application> ";
+  getline(cin, userInput);
+  if (userInput == "a")
+  {
+    // TO DO: add argument for the graph you make.
+    application(Nodes, Footways, Buildings);
+  }
+  else if (userInput == "c")
+  {
+    // TO DO: add arguments
+    creative();
+  }
+  //
+  // done:
+  //
+  cout << "** Done **" << endl;
+  return 0;
+}
